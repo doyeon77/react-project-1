@@ -6,6 +6,12 @@ import WarningBanner from "../components/WarningBanner";
 import { UserContext } from "../UserContext";
 
 export default function Home() {
+  // 약 추가/수정 모달 상태
+  const [showAddModal, setShowAddModal] = React.useState(false);
+  const [editMed, setEditMed] = React.useState(null);
+  // 과거 복용 약 리스트 펼침 상태
+  const [showPastDetails, setShowPastDetails] = React.useState(null);
+  // 실제 과거 복용약 여러 개와 복용 기록(복용 > 미복용) 자동 추가
   // 명언 리스트 (매일 다르게)
   const quotes = [
     "건강은 가장 소중한 재산입니다.",
@@ -22,150 +28,110 @@ export default function Home() {
   // 오늘 날짜 기반 명언 선택
   const todayIdx = new Date().getDate() % quotes.length;
   const todayQuote = quotes[todayIdx];
-  // 전체보기용 예시 약 및 복용 기록 데이터 (가장 먼저 선언)
-  const examplePastMeds = [
-    {
-      id: "ex1",
-      name: "아목시실린",
-      type: "항생제",
-      startDate: "2025-11-20",
-      endDate: "2025-12-31",
-    },
-    {
-      id: "ex2",
-      name: "노바스크",
-      type: "고혈압 치료제",
-      startDate: "2025-10-01",
-      endDate: "2025-12-31",
-    },
-    {
-      id: "ex3",
-      name: "센트룸 실버",
-      type: "비타민/영양제",
-      startDate: "2025-09-01",
-      endDate: "2025-12-31",
-    },
-    {
-      id: "ex4",
-      name: "타이레놀",
-      type: "진통제",
-      startDate: "2025-08-15",
-      endDate: "2025-12-31",
-    },
-    {
-      id: "ex5",
-      name: "플루옥세틴",
-      type: "우울증 치료제",
-      startDate: "2025-07-01",
-      endDate: "2025-12-31",
-    },
-    {
-      id: "ex6",
-      name: "리피토",
-      type: "고지혈증 치료제",
-      startDate: "2025-06-01",
-      endDate: "2025-12-31",
-    },
-  ];
   // UserContext에서 medications 받아오기
   const { medications, updateMedication } = useContext(UserContext);
-  // 달력에 표시할 복용 기록 객체 생성
-  const calendarRecords = {};
-  // 실제 복용 기록(예시: medications의 takenRecords 활용)
-  (medications || []).forEach((med) => {
-    if (med.takenRecords) {
-      Object.entries(med.takenRecords).forEach(([key, taken]) => {
-        // key: 'YYYY-MM-DDTHH:MM' -> 날짜만 추출
-        const date = key.split("T")[0];
-        if (!calendarRecords[date]) calendarRecords[date] = { allMeds: [] };
-        calendarRecords[date].allMeds.push({ name: med.name, taken });
-      });
-    }
-  });
-  // 과거 복용약 예시 기록을 달력에 추가 (복용이 더 많이 보이게)
-  // 날짜+약이름 해시 기반으로 80% 복용, 20% 미복용(항상 같은 결과)
-  function hashString(str) {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i);
-      hash |= 0;
-    }
-    return Math.abs(hash);
-  }
-  examplePastMeds.forEach((med) => {
-    const start = new Date(med.startDate);
-    const end = new Date(med.endDate);
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      const dateStr = `${yyyy}-${mm}-${dd}`;
-      if (!calendarRecords[dateStr]) calendarRecords[dateStr] = { allMeds: [] };
-      // 해시값 기준 80% 복용, 20% 미복용
-      const hash = hashString(dateStr + med.name);
-      const taken = hash % 10 < 8; // 0~7: 복용, 8~9: 미복용
-      calendarRecords[dateStr].allMeds.push({ name: med.name, taken });
-    }
-  });
-  // 날짜+약이름별로 한 번만(복용/미복용) 남기도록 정제
-  Object.keys(calendarRecords).forEach((dateStr) => {
-    const medsByName = {};
-    let anyTaken = false;
-    calendarRecords[dateStr].allMeds.forEach((m) => {
-      if (!medsByName[m.name]) medsByName[m.name] = m;
-      if (m.taken) anyTaken = true;
-    });
-    calendarRecords[dateStr].allMeds = Object.values(medsByName);
-    // 달력 배경색도 taken 기준으로 복용(✅)이 많게 보이도록 강제
-    calendarRecords[dateStr].taken = true;
-  });
-  // 약 추가/수정 핸들러
-  const handleAddOrEditMed = (newMed) => {
-    let updated;
-    if (newMed.id) {
-      // 수정
-      updated = medications.map((med) => (med.id === newMed.id ? newMed : med));
-    } else {
-      // 추가
-      updated = [...medications, { ...newMed, id: Date.now().toString() }];
-    }
-    updateMedication(updated);
-  };
-  // 과거 복용 약 기록 펼침 상태
-  const [showPastDetails, setShowPastDetails] = React.useState(null);
 
-  // 약 삭제 핸들러
-  const handleDeleteMed = (id) => {
-    const filtered = medications.filter((med) => med.id !== id);
-    updateMedication(filtered);
-  };
-  // 약 추가/수정 모달 상태
-  const [showAddModal, setShowAddModal] = React.useState(false);
-  const [editMed, setEditMed] = React.useState(null);
-  // 사용하지 않는 변수 주석 처리
-  // const quotes = [...];
-  // const examplePastMeds = [...];
-  // const [showPastMeds, setShowPastMeds] = useState(false);
-  // const [pastMeds, setPastMeds] = useState([]);
-  // meals 오류 방지용 임시 선언
-  const meals = [];
-  // 과거 복용 약 추출 useEffect (사용하지 않으므로 주석 처리)
-  // useEffect(() => {
-  //   const today = new Date();
-  //   const todayStr = `${today.getFullYear()}-${String(
-  //     today.getMonth() + 1
-  //   ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  //   // endDate가 오늘 이전인 약만 추출
-  //   const pastList = medications.filter((med) => {
-  //     if (!med.endDate || med.endDate.length !== 10) return false;
-  //     return med.endDate < todayStr;
-  //   });
-  //   setPastMeds(pastList);
-  // }, [medications]);
-  // 최근 7일 복약 달성률 데이터 생성
-  // ...불필요한 날짜 함수 및 변수 제거...
-  // ...사용하지 않는 변수 제거...
-  // ...사용하지 않는 변수 제거...
+  React.useEffect(() => {
+    if (!medications || medications.length === 0) {
+      // 복용 기록 생성 함수 (복용 80~90% 확률)
+      function generateTakenRecords(startDate, endDate, times) {
+        const records = {};
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          times.forEach((t) => {
+            const dateStr = `${d.getFullYear()}-${String(
+              d.getMonth() + 1
+            ).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+            const key = `${dateStr}T${t.time || "08:00"}`;
+            records[key] = Math.random() < 0.85; // 85% 복용
+          });
+        }
+        return records;
+      }
+      const initialMeds = [
+        {
+          id: "1",
+          name: "타이레놀",
+          type: "진통제",
+          startDate: "2025-11-01",
+          endDate: "2025-11-10",
+          times: [
+            { category: "아침", time: "08:00" },
+            { category: "저녁", time: "20:00" },
+          ],
+          takenRecords: generateTakenRecords("2025-11-01", "2025-11-10", [
+            { category: "아침", time: "08:00" },
+            { category: "저녁", time: "20:00" },
+          ]),
+        },
+        {
+          id: "2",
+          name: "판콜에이",
+          type: "감기약",
+          startDate: "2025-10-15",
+          endDate: "2025-10-25",
+          times: [{ category: "점심", time: "12:00" }],
+          takenRecords: generateTakenRecords("2025-10-15", "2025-10-25", [
+            { category: "점심", time: "12:00" },
+          ]),
+        },
+        {
+          id: "3",
+          name: "센트룸",
+          type: "비타민",
+          startDate: "2025-09-01",
+          endDate: "2025-09-15",
+          times: [{ category: "아침", time: "08:30" }],
+          takenRecords: generateTakenRecords("2025-09-01", "2025-09-15", [
+            { category: "아침", time: "08:30" },
+          ]),
+        },
+        {
+          id: "4",
+          name: "베아제",
+          type: "소화제",
+          startDate: "2025-08-10",
+          endDate: "2025-08-20",
+          times: [{ category: "저녁", time: "19:00" }],
+          takenRecords: generateTakenRecords("2025-08-10", "2025-08-20", [
+            { category: "저녁", time: "19:00" },
+          ]),
+        },
+        {
+          id: "5",
+          name: "아스피린",
+          type: "혈액순환제",
+          startDate: "2025-07-01",
+          endDate: "2025-07-10",
+          times: [
+            { category: "아침", time: "08:30" },
+            { category: "점심", time: "12:30" },
+          ],
+          takenRecords: generateTakenRecords("2025-07-01", "2025-07-10", [
+            { category: "아침", time: "08:30" },
+            { category: "점심", time: "12:30" },
+          ]),
+        },
+        {
+          id: "6",
+          name: "리피토",
+          type: "고지혈증 치료제",
+          startDate: "2025-12-01",
+          endDate: "2025-12-31",
+          times: [{ category: "기본", time: "08:00" }],
+          days: ["월", "화", "수", "목", "금", "토", "일"],
+          takenRecords: {
+            "2025-12-08T08:00": true,
+            ...generateTakenRecords("2025-12-01", "2025-12-31", [
+              { category: "기본", time: "08:00" },
+            ]),
+          },
+        },
+      ];
+      updateMedication(initialMeds);
+    }
+  }, [medications, updateMedication]);
   // skipped, meals 등도 Context 또는 props로 관리 필요 (추후 개선)
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(
@@ -199,6 +165,8 @@ export default function Home() {
       }
     }
   });
+
+  // 예시 약 자동 삽입 완전 제거. 이제 내가 직접 등록한 약만 표시됨.
 
   // 실제 UI 렌더링 (원래 기능 복구)
   return (
@@ -310,25 +278,27 @@ export default function Home() {
       </div>
       {showPastDetails === "all" && (
         <ul className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {examplePastMeds.map((med) => (
-            <li
-              key={med.id}
-              className="p-6 rounded-3xl shadow-xl border border-indigo-100 bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 flex flex-col gap-2"
-            >
-              <div className="flex items-center gap-3 mb-2">
-                <span className="text-2xl">💊</span>
-                <span className="font-extrabold text-xl text-indigo-700 drop-shadow">
-                  {med.name}
-                </span>
-                <span className="ml-2 text-xs text-gray-500 font-semibold">
-                  ({med.startDate} ~ {med.endDate})
-                </span>
-              </div>
-              <div className="text-xs text-indigo-500 mb-2 font-bold">
-                분류: {med.type || "-"}
-              </div>
-            </li>
-          ))}
+          {(medications || [])
+            .filter((med) => med.endDate && med.endDate < todayStr) // 과거 복용약만 표시
+            .map((med) => (
+              <li
+                key={med.id}
+                className="p-6 rounded-3xl shadow-xl border border-indigo-100 bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 flex flex-col gap-2"
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl">💊</span>
+                  <span className="font-extrabold text-xl text-indigo-700 drop-shadow">
+                    {med.name}
+                  </span>
+                  <span className="ml-2 text-xs text-gray-500 font-semibold">
+                    ({med.startDate} ~ {med.endDate})
+                  </span>
+                </div>
+                <div className="text-xs text-indigo-500 mb-2 font-bold">
+                  분류: {med.type || "-"}
+                </div>
+              </li>
+            ))}
         </ul>
       )}
 

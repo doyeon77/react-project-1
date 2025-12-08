@@ -182,13 +182,6 @@ export default function Dashboard() {
   console.log("예시 데이터:", exampleMeds);
   const { medications, updateMedication } = useContext(UserContext);
 
-  // 예시 데이터: 앱 최초 실행 시 과거/현재/미래 약 자동 추가
-  React.useEffect(() => {
-    if (!medications || medications.length > 0) return;
-    // localStorage 접근 제거: 상태는 Context에서만 관리
-    updateMedication(exampleMeds);
-    // window.location.reload() 제거: 상태 갱신만으로 UI 변경
-  }, [medications, updateMedication, exampleMeds]);
   // 복용 상세 모달용 상태
   const [editDate, setEditDate] = useState(null);
   const [editRecord, setEditRecord] = useState(null);
@@ -229,7 +222,7 @@ export default function Dashboard() {
     }
     return str;
   }
-  // 복용현황: 홈(UserContext)에 기록된 데이터만 표시 (예시 데이터 완전 제거)
+  // 복용현황: 오직 사용자가 입력한 데이터만 표시 (예시 데이터 완전 제거)
   const normalizedMeds = (
     medications && medications.length > 0 ? medications : []
   ).map((med) => ({
@@ -263,14 +256,12 @@ export default function Dashboard() {
 
     // 약의 기간이 현재 달력 날짜에 포함되는 경우만 표기
     let medsForDay = normalizedMeds.filter((med) => {
-      if (
-        med.startDate &&
-        med.startDate.length === 10 &&
-        dateStr < med.startDate
-      )
+      // 기간이 명확히 입력된 약만 표시 (둘 다 10글자, 빈 값 허용 X)
+      if (!med.startDate || !med.endDate) return false;
+      if (med.startDate.length !== 10 || med.endDate.length !== 10)
         return false;
-      if (med.endDate && med.endDate.length === 10 && dateStr > med.endDate)
-        return false;
+      if (dateStr < med.startDate) return false;
+      if (dateStr > med.endDate) return false;
       if (!Array.isArray(med.days) || med.days.length === 0) return true;
       if (!med.days.includes(dayOfWeek)) return false;
       // 현재 달력(month)에 포함되는 기간만 표기
@@ -287,10 +278,7 @@ export default function Dashboard() {
       }
       return true;
     });
-    // 만약 아무 약도 없으면 예시 데이터라도 강제로 표시
-    if (medsForDay.length === 0 && examplePastMeds.length > 0) {
-      medsForDay = examplePastMeds;
-    }
+    // 예시 데이터 강제 표기 코드 완전 제거 (내가 등록한 약만 표시)
 
     // 모든 약의 모든 times별로 taken 여부 포함
     let allMeds = [];
@@ -301,9 +289,10 @@ export default function Dashboard() {
           : [{ category: "기본", time: "08:00" }];
       timesArr.forEach((t) => {
         const doseKey = `${dateStr}T${t.time || "08:00"}`;
-        const taken = !!(
-          med.takenRecords && med.takenRecords[doseKey] === true
-        );
+        const isPastOrToday = dateStr <= todayStr;
+        const taken = isPastOrToday
+          ? !!(med.takenRecords && med.takenRecords[doseKey] === true)
+          : null; // 미래는 null
         allMeds.push({
           name: med.name,
           time: t.category + (t.time ? `(${t.time})` : ""),
@@ -499,9 +488,11 @@ export default function Dashboard() {
       records.push({
         date: dateStr,
         meds: normalizedMeds.filter((med) => {
-          const inPeriod =
-            (!med.startDate || dateStr >= med.startDate) &&
-            (!med.endDate || dateStr <= med.endDate);
+          // 기간이 명확히 입력된 약만 표시
+          if (!med.startDate || !med.endDate) return false;
+          if (med.startDate.length !== 10 || med.endDate.length !== 10)
+            return false;
+          const inPeriod = dateStr >= med.startDate && dateStr <= med.endDate;
           const matchesDay =
             !med.days || med.days.includes(weekDays[date.getDay()]);
           return inPeriod && matchesDay;
@@ -509,28 +500,62 @@ export default function Dashboard() {
       });
     }
 
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(
+      today.getMonth() + 1
+    ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     return (
       <div className="grid grid-cols-4 gap-3 max-w-5xl mx-auto">
-        {records.map(({ date, meds }) => (
-          <div
-            key={date}
-            className="border p-3 text-center bg-white rounded-xl shadow-md flex flex-col items-center justify-center"
-            style={{ width: "180px", height: "140px" }}
-          >
-            <div className="font-bold text-base mb-2 text-indigo-700">
-              {date}
+        {records.map(({ date, meds }) => {
+          const isFuture = date > todayStr;
+          return (
+            <div
+              key={date}
+              className="border p-3 text-center bg-white rounded-xl shadow-md flex flex-col items-center justify-center"
+              style={{ width: "180px", height: "140px" }}
+            >
+              <div className="font-bold text-base mb-2 text-indigo-700">
+                {date}
+              </div>
+              {meds.length > 0 ? (
+                meds.map((med, idx) => (
+                  <div key={idx} className="text-sm text-gray-700">
+                    {med.name}
+                    {med.times && med.times.length > 0
+                      ? med.times.map((t, tIdx) => {
+                          const doseKey = `${date}T${t.time || "08:00"}`;
+                          if (isFuture) {
+                            return (
+                              <span key={tIdx} className="ml-1 text-blue-500">
+                                예정
+                              </span>
+                            );
+                          }
+                          const taken =
+                            med.takenRecords &&
+                            med.takenRecords[doseKey] === true;
+                          return (
+                            <span
+                              key={tIdx}
+                              className={
+                                taken
+                                  ? "ml-1 text-green-600"
+                                  : "ml-1 text-red-500"
+                              }
+                            >
+                              {taken ? "✅" : "❌"}
+                            </span>
+                          );
+                        })
+                      : null}
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-gray-400">복용할 약 없음</div>
+              )}
             </div>
-            {meds.length > 0 ? (
-              meds.map((med, idx) => (
-                <div key={idx} className="text-sm text-gray-700">
-                  {med.name} {med.taken ? "✅" : "❌"}
-                </div>
-              ))
-            ) : (
-              <div className="text-sm text-gray-400">복용할 약 없음</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
