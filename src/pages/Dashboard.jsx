@@ -7,11 +7,16 @@ export default function Dashboard() {
   const handleSaveDateRecord = () => {};
   // 해당 날짜와 요일에 복용해야 하는 약만 필터링하는 함수
   function filterMedsForDay(meds, dateStr, dayOfWeek) {
-    return meds.filter(
-      (med) =>
-        (med.days && med.days.includes(dayOfWeek)) ||
-        (med.dates && med.dates.includes(dateStr))
-    );
+    // 약의 복용기간에 해당하는 날짜에만 표시
+    return (meds || []).filter((med) => {
+      // 기간 체크
+      if (!med.startDate || !med.endDate) return false;
+      if (dateStr < med.startDate || dateStr > med.endDate) return false;
+      // 요일 체크
+      if (med.days && med.days.length > 0 && !med.days.includes(dayOfWeek))
+        return false;
+      return true;
+    });
   }
   const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
   const { medications } = useContext(UserContext);
@@ -180,6 +185,22 @@ export default function Dashboard() {
                           <span>{med.name}</span>
                           {med.times.map((t, tIdx) => {
                             const doseKey = `${dateStr}T${t.time || "08:00"}`;
+                            const today = new Date();
+                            const todayStr = `${today.getFullYear()}-${String(
+                              today.getMonth() + 1
+                            ).padStart(2, "0")}-${String(
+                              today.getDate()
+                            ).padStart(2, "0")}`;
+                            if (dateStr > todayStr) {
+                              return (
+                                <span
+                                  key={tIdx}
+                                  className="ml-1 text-blue-400 font-bold"
+                                >
+                                  ⏳
+                                </span>
+                              );
+                            }
                             const taken =
                               med.takenRecords &&
                               med.takenRecords[doseKey] === true;

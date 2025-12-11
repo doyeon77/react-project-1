@@ -7,179 +7,7 @@ import AddMedicationModal from "../../AddMedicationModal";
 import DayRecordList from "../components/DayRecordList";
 import DateDetailModal from "../components/DateDetailModal";
 export default function Dashboard() {
-  // 홈의 과거 복용약 예시 데이터와 동일하게 선언
-  // 과거 약의 takenRecords를 80% 확률로 true로 생성하는 함수
-  function generateTakenRecords(startDate, endDate, days, times) {
-    const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
-    const records = {};
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      const dayName = weekDays[d.getDay()];
-      if (!days.includes(dayName)) continue;
-      times.forEach((t) => {
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-          2,
-          "0"
-        )}-${String(d.getDate()).padStart(2, "0")}`;
-        const key = `${dateStr}T${t.time || "08:00"}`;
-        records[key] = Math.random() < 0.8; // 80% 확률로 true
-      });
-    }
-    return records;
-  }
-
-  // 오늘 달(2025-12)에 무조건 표시되도록 예시 데이터 기간을 강제 지정
-  const examplePastMeds = [
-    {
-      id: "ex1",
-      name: "아목시실린",
-      type: "항생제",
-      startDate: "2025-12-01",
-      endDate: "2025-12-31",
-      days: ["월", "화", "수", "목", "금", "토", "일"],
-      times: [{ category: "기본", time: "08:00" }],
-    },
-    {
-      id: "ex2",
-      name: "노바스크",
-      type: "고혈압 치료제",
-      startDate: "2025-12-01",
-      endDate: "2025-12-31",
-      days: ["월", "화", "수", "목", "금", "토", "일"],
-      times: [{ category: "기본", time: "08:00" }],
-    },
-    {
-      id: "ex3",
-      name: "센트룸 실버",
-      type: "비타민/영양제",
-      startDate: "2025-12-01",
-      endDate: "2025-12-31",
-      days: ["월", "화", "수", "목", "금", "토", "일"],
-      times: [{ category: "기본", time: "08:00" }],
-    },
-    {
-      id: "ex4",
-      name: "타이레놀",
-      type: "진통제",
-      startDate: "2025-12-01",
-      endDate: "2025-12-31",
-      days: ["월", "화", "수", "목", "금", "토", "일"],
-      times: [{ category: "기본", time: "08:00" }],
-    },
-    {
-      id: "ex5",
-      name: "플루옥세틴",
-      type: "우울증 치료제",
-      startDate: "2025-12-01",
-      endDate: "2025-12-31",
-      days: ["월", "화", "수", "목", "금", "토", "일"],
-      times: [{ category: "기본", time: "08:00" }],
-    },
-    {
-      id: "ex6",
-      name: "리피토",
-      type: "고지혈증 치료제",
-      startDate: "2025-12-01",
-      endDate: "2025-12-31",
-      days: ["월", "화", "수", "목", "금", "토", "일"],
-      times: [{ category: "기본", time: "08:00" }],
-    },
-  ].map((med) => ({
-    ...med,
-    takenRecords: generateTakenRecords(
-      med.startDate,
-      med.endDate,
-      med.days,
-      med.times
-    ),
-  }));
-  // 예시 데이터 강제 초기화 함수
-  const nowExample = new Date();
-  const padExample = (n) => String(n).padStart(2, "0");
-  // 예시 데이터: 앱 최초 실행 시 과거/현재/미래 약 자동 추가 (공통)
-  // 실제 코드용 변수와 충돌 방지 위해 Example 접두어 사용
-  // 중복 선언 제거: 최상단 선언만 사용
-  // 월/연도 보정 함수
-  function getYearMonth(baseDate, offset) {
-    const year = baseDate.getFullYear();
-    let month = baseDate.getMonth() + offset;
-    let newYear = year;
-    while (month < 0) {
-      month += 12;
-      newYear -= 1;
-    }
-    while (month > 11) {
-      month -= 12;
-      newYear += 1;
-    }
-    return { year: newYear, month: month + 1 };
-  }
-
-  // 예시 데이터 선언 및 초기화 (함수 바깥으로 이동)
-  const todayStrExample = `${nowExample.getFullYear()}-${padExample(
-    nowExample.getMonth() + 1
-  )}-${padExample(nowExample.getDate())}`;
-  // 과거 (한 달 전)
-  const pastYM = getYearMonth(nowExample, -1);
-  const pastStartExample = `${pastYM.year}-${padExample(pastYM.month)}-01`;
-  const pastEndExample = `${pastYM.year}-${padExample(pastYM.month)}-15`;
-  // 미래 (다음 달)
-  const futureYM = getYearMonth(nowExample, 1);
-  const futureStartExample = `${futureYM.year}-${padExample(
-    futureYM.month
-  )}-01`;
-  const futureEndExample = `${futureYM.year}-${padExample(futureYM.month)}-15`;
-  const exampleMeds = useMemo(
-    () => [
-      {
-        id: Date.now() + 1,
-        name: "과거 항생제",
-        type: "항생제",
-        days: ["월", "화", "수", "목", "금"],
-        times: [{ category: "아침", time: "08:00" }],
-        startDate: pastStartExample,
-        endDate: pastEndExample,
-        takenRecords: {
-          [`${pastStartExample}T08:00`]: true,
-          [`${pastEndExample}T08:00`]: false,
-        },
-      },
-      {
-        id: Date.now() + 2,
-        name: "오늘 혈압약",
-        type: "혈압약",
-        days: ["월", "화", "수", "목", "금", "토", "일"],
-        times: [
-          { category: "아침", time: "08:00" },
-          { category: "저녁", time: "20:00" },
-        ],
-        startDate: todayStrExample,
-        endDate: todayStrExample,
-        takenRecords: {},
-      },
-      {
-        id: Date.now() + 3,
-        name: "미래 위장약",
-        type: "위장약",
-        days: ["월", "화", "수", "목", "금", "토", "일"],
-        times: [{ category: "아침", time: "08:00" }],
-        startDate: futureStartExample,
-        endDate: futureEndExample,
-        takenRecords: {},
-      },
-    ],
-    [
-      pastStartExample,
-      pastEndExample,
-      todayStrExample,
-      futureStartExample,
-      futureEndExample,
-    ]
-  );
-
-  // exampleMeds 선언 이후에 콘솔 출력
-  console.log("예시 데이터:", exampleMeds);
+  // 예시 데이터 완전 제거: 오직 UserContext의 medications만 사용
   const { medications, updateMedication } = useContext(UserContext);
 
   // 복용 상세 모달용 상태
@@ -223,22 +51,22 @@ export default function Dashboard() {
     return str;
   }
   // 복용현황: 오직 사용자가 입력한 데이터만 표시 (예시 데이터 완전 제거)
-  const normalizedMeds = (
-    medications && medications.length > 0 ? medications : []
-  ).map((med) => ({
-    ...med,
-    startDate: toYYYYMMDD(med.startDate),
-    endDate: toYYYYMMDD(med.endDate),
-    days:
-      Array.isArray(med.days) && med.days.length > 0
-        ? med.days.filter((d) => weekDays.includes(d))
-        : weekDays,
-    times:
-      Array.isArray(med.times) && med.times.length > 0
-        ? med.times
-        : [{ category: "기본", time: "08:00" }],
-    takenRecords: med.takenRecords || {},
-  }));
+  const normalizedMeds = Array.isArray(medications)
+    ? medications.map((med) => ({
+        ...med,
+        startDate: toYYYYMMDD(med.startDate),
+        endDate: toYYYYMMDD(med.endDate),
+        days:
+          Array.isArray(med.days) && med.days.length > 0
+            ? med.days.filter((d) => weekDays.includes(d))
+            : weekDays,
+        times:
+          Array.isArray(med.times) && med.times.length > 0
+            ? med.times
+            : [{ category: "기본", time: "08:00" }],
+        takenRecords: med.takenRecords || {},
+      }))
+    : [];
 
   // 날짜별 복용기록 생성 (복용 여부 + 복용한 약 이름/시간)
   const records = {};

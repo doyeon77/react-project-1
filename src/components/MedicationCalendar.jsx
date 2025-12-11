@@ -78,7 +78,14 @@ export default function MedicationCalendar({
           ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
           // records[key]가 없으면 빈 allMeds로 대체
           const record = records[key] || {};
-          const allMeds = Array.isArray(record.allMeds) ? record.allMeds : [];
+          // 복용기간에 해당하는 약만 표시
+          const allMeds = Array.isArray(record.allMeds)
+            ? record.allMeds.filter((med) => {
+                // med.startDate, med.endDate가 key(YYYY-MM-DD) 범위에 포함될 때만 표시
+                if (!med.startDate || !med.endDate) return true;
+                return med.startDate <= key && med.endDate >= key;
+              })
+            : [];
           const isFuture = key > todayStr;
           return d ? (
             <div
@@ -102,32 +109,42 @@ export default function MedicationCalendar({
                 {allMeds.length > 0 ? (
                   [...allMeds]
                     .sort((a, b) => {
-                      // 00:00(취침전)은 항상 맨 뒤, 나머지는 시간 오름차순
                       const tA = a.time || "00:00";
                       const tB = b.time || "00:00";
                       if (tA === "00:00" && tB !== "00:00") return 1;
                       if (tB === "00:00" && tA !== "00:00") return -1;
-                      // 00:00이 아닌 경우 시간 오름차순
                       return tA.localeCompare(tB);
                     })
-                    .map((med, idx) => (
-                      <div
-                        key={idx}
-                        className="truncate flex items-center justify-center gap-1"
-                      >
-                        <span className="font-semibold">{med.name}</span>
-                        <span className="text-xs text-gray-500">
-                          {med.time || ""}
-                        </span>
-                        {isFuture ? (
-                          <span className="text-blue-400 font-bold">
-                            ⏳ 복용예정
+                    .map((med, idx) => {
+                      if (isFuture) {
+                        return (
+                          <div
+                            key={idx}
+                            className="truncate flex items-center justify-center gap-1"
+                          >
+                            <span className="font-semibold">{med.name}</span>
+                            <span className="text-xs text-gray-500">
+                              {med.time || ""}
+                            </span>
+                            <span className="text-blue-400 font-bold">
+                              ⏳ 복용예정
+                            </span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div
+                          key={idx}
+                          className="truncate flex items-center justify-center gap-1"
+                        >
+                          <span className="font-semibold">{med.name}</span>
+                          <span className="text-xs text-gray-500">
+                            {med.time || ""}
                           </span>
-                        ) : (
                           <span>{med.taken ? "✅" : "❌"}</span>
-                        )}
-                      </div>
-                    ))
+                        </div>
+                      );
+                    })
                 ) : (
                   <span className="text-gray-400 text-xs">복용할 약 없음</span>
                 )}

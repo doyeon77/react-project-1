@@ -1,59 +1,37 @@
-import React, { useContext } from "react";
+// Home 페이지: 전체 약 관리 및 메인 UI
+import React, { useContext, useState, useEffect } from "react";
 import MedicationCalendar from "../components/MedicationCalendar";
 import AddMedicationModal from "../../AddMedicationModal";
-import MedicationList from "../components/MedicationList";
 import WarningBanner from "../components/WarningBanner";
 import { UserContext } from "../UserContext";
 
 export default function Home() {
-  // UserContext에서 medications, updateMedication 받아오기 (가장 먼저 선언)
+  // 상태 관리 및 주요 변수: 중복 선언 없이 한 번만 선언
   const { medications, updateMedication } = useContext(UserContext);
-
-  // 혈압약 예시 데이터 강제 추가 (12월 4일~10일)
-  React.useEffect(() => {
-    if (
-      !medications.some(
-        (m) =>
-          m.name.includes("혈압약") &&
-          m.startDate === "2025-12-04" &&
-          m.endDate === "2025-12-10"
-      )
-    ) {
-      const weekDays = ["일", "월", "화", "수", "목", "금", "토"];
-      const times = [{ category: "아침", time: "08:00" }];
-      const takenRecords = {};
-      const today = new Date();
-      const todayNum = today.getDate();
-      for (let d = 4; d <= 10; d++) {
-        const dateStr = `2025-12-${String(d).padStart(2, "0")}`;
-        times.forEach((t) => {
-          const key = `${dateStr}T${t.time}`;
-          // 오늘 날짜까지만 복용여부 랜덤, 내일(10일)이후는 복용예정(null)
-          if (d < todayNum) {
-            takenRecords[key] = Math.random() < 0.85;
-          } else if (d === todayNum) {
-            takenRecords[key] = Math.random() < 0.85;
-          } else {
-            takenRecords[key] = null;
-          }
-        });
-      }
-      updateMedication((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          name: "혈압약",
-          type: "혈압약",
-          startDate: "2025-12-04",
-          endDate: "2025-12-10",
-          days: weekDays,
-          times,
-          takenRecords,
-        },
-      ]);
-    }
-  }, [medications, updateMedication]);
-  // 분류별 이모티콘 매핑 (MedicationList.jsx와 동일)
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editMed, setEditMed] = useState(null);
+  const [showPastDetails, setShowPastDetails] = useState(null);
+  const [pastSearch, setPastSearch] = useState("");
+  // 명언 리스트 및 오늘 명언
+  const quotes = [
+    "건강은 가장 소중한 재산입니다.",
+    "오늘의 작은 습관이 내일의 건강을 만듭니다.",
+    "약은 꾸준히, 건강은 천천히.",
+    "몸을 아끼는 것이 삶을 아끼는 것이다.",
+    "건강을 잃으면 모든 것을 잃는다.",
+    "내 몸을 위한 최고의 투자, 복약.",
+    "오늘도 건강 챙기기!",
+    "꾸준함이 최고의 명약이다.",
+    "건강은 준비된 자에게 온다.",
+    "약은 잊지 말고, 건강은 놓치지 말자.",
+  ];
+  const todayIdx = new Date().getDate() % quotes.length;
+  const todayQuote = quotes[todayIdx];
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(
+    today.getMonth() + 1
+  ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const warnings = [];
   const typeIconMap = {
     진통제: "💊",
     감기약: "🤧",
@@ -67,92 +45,26 @@ export default function Home() {
     홍삼: "🧧",
     기타: "🧃",
   };
-  // 약 삭제 핸들러
+
+  // 약 삭제
   function handleDeleteMed(id) {
     updateMedication((prevMeds) => prevMeds.filter((med) => med.id !== id));
   }
-  // 약 추가/수정 핸들러
+  // 약 추가/수정
   function handleAddOrEditMed(newMed) {
     if (!newMed) return;
-    // 기존 약 수정 또는 새 약 추가 (함수형으로 강제)
     updateMedication((prevMeds) => {
       if (!prevMeds || !Array.isArray(prevMeds)) return [newMed];
       const exists = prevMeds.find((med) => med.id === newMed.id);
       if (exists) {
-        // 수정: 해당 id의 약만 교체
         return prevMeds.map((med) => (med.id === newMed.id ? newMed : med));
       } else {
-        // 추가: 새 약 추가
         return [...prevMeds, newMed];
       }
     });
     setShowAddModal(false);
     setEditMed(null);
   }
-  // 약 추가/수정 모달 상태
-  const [showAddModal, setShowAddModal] = React.useState(false);
-  const [editMed, setEditMed] = React.useState(null);
-  // 과거 복용 약 리스트 펼침 상태
-  const [showPastDetails, setShowPastDetails] = React.useState(null);
-  // 과거 복용약 검색 상태
-  const [pastSearch, setPastSearch] = React.useState("");
-  // 실제 과거 복용약 여러 개와 복용 기록(복용 > 미복용) 자동 추가
-  // 명언 리스트 (매일 다르게)
-  const quotes = [
-    "건강은 가장 소중한 재산입니다.",
-    "오늘의 작은 습관이 내일의 건강을 만듭니다.",
-    "약은 꾸준히, 건강은 천천히.",
-    "몸을 아끼는 것이 삶을 아끼는 것이다.",
-    "건강을 잃으면 모든 것을 잃는다.",
-    "내 몸을 위한 최고의 투자, 복약.",
-    "오늘도 건강 챙기기!",
-    "꾸준함이 최고의 명약이다.",
-    "건강은 준비된 자에게 온다.",
-    "약은 잊지 말고, 건강은 놓치지 말자.",
-  ];
-  // 오늘 날짜 기반 명언 선택
-  const todayIdx = new Date().getDate() % quotes.length;
-  const todayQuote = quotes[todayIdx];
-
-  React.useEffect(() => {
-    // 예시 데이터 강제 초기화 코드 제거
-    // if (!medications || medications.length === 0) {
-    //   ...예시 데이터 생성 및 updateMedication...
-    // }
-  }, [medications, updateMedication]);
-  // skipped, meals 등도 Context 또는 props로 관리 필요 (추후 개선)
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(
-    today.getMonth() + 1
-  ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  // 경고/위험/팁 메시지 생성
-  const warnings = [];
-  // 1. 2회 이상 연속 미복용 경고 (skipped 변수 미정의로 임시 주석 처리)
-  // medications.forEach((med) => {
-  //   let skipCount = 0;
-  //   // 실제로는 날짜별 기록 필요, 여기선 오늘만 체크
-  //   if (skipped[med.id]) skipCount++;
-  //   // 샘플: 2회 이상 연속 미복용 시 경고
-  //   if (skipCount >= 2) {
-  //     warnings.push({
-  //       type: "danger",
-  //       message: `"${med.name}"을(를) 2회 이상 연속으로 건너뛰었습니다. 복약을 꼭 챙겨주세요!`,
-  //     });
-  //   }
-  // });
-  // 2. 식사 직후 복용 필수 약 + 식사 기록 없음 경고
-  // 식사 기록 경고는 meals 미정의로 임시 비활성화
-  // medications.forEach((med) => {
-  //   if (med.type && med.type.includes("식사 직후")) {
-  //     const todayMeal = meals.find((m) => m.date === todayStr);
-  //     if (!todayMeal) {
-  //       warnings.push({
-  //         type: "warn",
-  //         message: `"${med.name}"은(는) 식사 직후 복용해야 합니다. 오늘 식사 기록이 없습니다.`,
-  //       });
-  //     }
-  //   }
-  // });
 
   // 예시 약 자동 삽입 완전 제거. 이제 내가 직접 등록한 약만 표시됨.
 
@@ -317,6 +229,12 @@ export default function Home() {
         <ul className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-6">
           {(medications || [])
             .filter((med) => med.endDate && med.endDate < todayStr)
+            .filter((med) => {
+              // 복용기간에 맞는 날짜만 표시
+              const end = new Date(med.endDate);
+              const start = new Date(med.startDate);
+              return start <= end;
+            })
             .filter(
               (med) =>
                 pastSearch.trim() === "" ||
@@ -488,4 +406,3 @@ function getMedIcon(type) {
 // 복용 기록 생성 함수 (이제는 주석 처리됨)
 // function generateTakenRecords(startDate, endDate, times, type) {
 //   ...기존 코드...
-// }

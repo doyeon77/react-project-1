@@ -38,6 +38,28 @@ export default function MedicationList(props) {
     <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {meds.map((med) => {
         const isTaken = med.taken;
+        // 복용 상태 결정: 오늘 이후는 복용예정, 오늘 이전은 미복용, 오늘은 기존 로직
+        let doseDate = null;
+        if (med.doseTime && med.doseTime.length === 5) {
+          // med.doseTime이 'HH:MM' 형식일 때 날짜 정보가 없으므로, med.startDate/endDate 사용
+          doseDate = med.date || null;
+        } else if (med.doseTime && med.doseTime.length > 5) {
+          // 'YYYY-MM-DDTHH:MM' 형식이면 날짜 추출
+          doseDate = med.doseTime.split("T")[0];
+        }
+        const todayStr = new Date().toISOString().split("T")[0];
+        let statusLabel = "미복용";
+        let statusColor =
+          "bg-gradient-to-r from-red-400 to-red-600 text-white hover:from-red-500 hover:to-red-700";
+        if (doseDate && doseDate > todayStr) {
+          statusLabel = "복용예정";
+          statusColor =
+            "bg-gradient-to-r from-gray-300 to-gray-400 text-gray-700 hover:from-gray-400 hover:to-gray-500";
+        } else if (isTaken) {
+          statusLabel = "복용 완료";
+          statusColor =
+            "bg-gradient-to-r from-green-400 to-green-600 text-white hover:from-green-500 hover:to-green-700";
+        }
         return typeof med === "object" && med !== null ? (
           <li
             key={`${med.medicationId || med.id}-${med.doseTime}`}
@@ -53,10 +75,30 @@ export default function MedicationList(props) {
                   const rawType = med.type || "기타";
                   const cleanType =
                     typeof rawType === "string"
-                      ? rawType.replace(/\s/g, "").trim()
+                      ? rawType.replace(/\s/g, "").trim().toLowerCase()
                       : "기타";
+                  // 감기 관련 분류 보정 (한글, 영문, 오타, 대소문자, 공백 모두 포함)
+                  const coldKeywords = [
+                    "감기",
+                    "감기약",
+                    "감기약",
+                    "감기약",
+                    "cold",
+                    "감기약",
+                    "감기약제",
+                    "감기약품",
+                  ];
+                  if (
+                    coldKeywords.some((k) =>
+                      cleanType.includes(k.replace(/\s/g, "").toLowerCase())
+                    )
+                  ) {
+                    return typeIconMap["감기약"];
+                  }
                   return typeIconMap[cleanType] || typeIconMap["기타"];
                 })()}
+                {/* 디버깅: 실제 type 값 표시 */}
+                {/* <span style={{fontSize:'10px',color:'#aaa'}}>{String(med.type)}</span> */}
               </span>
               <span className="font-bold text-lg text-gray-800">
                 {typeof med.name === "string" ? removeStrayClose(med.name) : ""}
@@ -102,14 +144,10 @@ export default function MedicationList(props) {
                       med.doseTime || "08:00"
                     )
                   }
-                  className={`px-4 py-2 rounded-full font-semibold text-sm shadow-md transition-all transform hover:scale-105 ${
-                    isTaken
-                      ? "bg-gradient-to-r from-green-400 to-green-600 text-white hover:from-green-500 hover:to-green-700"
-                      : "bg-gradient-to-r from-red-400 to-red-600 text-white hover:from-red-500 hover:to-red-700"
-                  }`}
-                  title={isTaken ? "복용 완료" : "미복용"}
+                  className={`px-4 py-2 rounded-full font-semibold text-sm shadow-md transition-all transform hover:scale-105 ${statusColor}`}
+                  title={statusLabel}
                 >
-                  {isTaken ? "복용 완료" : "미복용"}
+                  {statusLabel}
                 </button>
               )}
               {/* 삭제 버튼 */}
